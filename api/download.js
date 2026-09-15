@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const response = await fetch("https://api.soclip.dev/v1/media", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + apiKey,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -67,34 +67,41 @@ export default async function handler(req, res) {
       })
     });
 
-    const text = await response.text();
+    const responseText = await response.text();
 
     let data;
 
     try {
-      data = JSON.parse(text);
+      data = JSON.parse(responseText);
     } catch {
+      console.error("SoClip returned non-JSON:", responseText);
+
       return res.status(502).json({
         success: false,
-        error: "Invalid response from SoClip"
+        error: "SoClip returned an invalid response",
+        status: response.status
       });
     }
 
     if (!response.ok) {
-      return res.status(response.status).json({
+      console.error("SoClip HTTP error:", response.status, data);
+
+      return res.status(502).json({
         success: false,
-        error: data.error || data.message || "SoClip request failed"
+        error: data.error || data.message || "SoClip request failed",
+        upstreamStatus: response.status
       });
     }
 
     return res.status(200).json(data);
 
   } catch (error) {
-    console.error("SoClip error:", error);
+    console.error("SoClip connection error:", error);
 
-    return res.status(500).json({
+    return res.status(502).json({
       success: false,
-      error: "Unable to connect to SoClip"
+      error: "Unable to connect to SoClip",
+      details: error.message
     });
   }
 }
