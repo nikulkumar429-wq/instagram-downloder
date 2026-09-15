@@ -39,34 +39,32 @@ export default async function handler(req, res) {
     "www.instagram.com"
   ];
 
-  if (!allowedHosts.includes(parsedUrl.hostname)) {
+  if (!allowedHosts.includes(parsedUrl.hostname.toLowerCase())) {
     return res.status(400).json({
       success: false,
       error: "Only Instagram URLs are supported"
     });
   }
 
-  const rapidApiKey = process.env.RAPIDAPI_KEY;
+  const apiKey = process.env.SOCLIP_API_KEY;
 
-  if (!rapidApiKey) {
+  if (!apiKey) {
     return res.status(500).json({
       success: false,
-      error: "RAPIDAPI_KEY is not configured on the server"
+      error: "SOCLIP_API_KEY is not configured"
     });
   }
 
-  const apiUrl =
-    "https://instagram-reels-downloader-api.p.rapidapi.com/download?url=" +
-    encodeURIComponent(instagramUrl);
-
   try {
-    const response = await fetch(apiUrl, {
-      method: "GET",
+    const response = await fetch("https://api.soclip.dev/v1/media", {
+      method: "POST",
       headers: {
-        "X-RapidAPI-Key": rapidApiKey,
-        "X-RapidAPI-Host":
-          "instagram-reels-downloader-api.p.rapidapi.com"
-      }
+        "Authorization": "Bearer " + apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        url: instagramUrl
+      })
     });
 
     const text = await response.text();
@@ -76,26 +74,27 @@ export default async function handler(req, res) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = {
+      return res.status(502).json({
         success: false,
-        error: "Invalid response from RapidAPI"
-      };
+        error: "Invalid response from SoClip"
+      });
     }
 
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
-        error: "RapidAPI request failed",
-        details: data
+        error: data.error || data.message || "SoClip request failed"
       });
     }
 
     return res.status(200).json(data);
 
   } catch (error) {
+    console.error("SoClip error:", error);
+
     return res.status(500).json({
       success: false,
-      error: "Unable to connect to RapidAPI"
+      error: "Unable to connect to SoClip"
     });
   }
 }
